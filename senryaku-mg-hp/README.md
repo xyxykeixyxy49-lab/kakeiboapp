@@ -9,8 +9,8 @@
 | 場所 | 役割 | 置くもの |
 |---|---|---|
 | **GitHub**（このフォルダ） | ホームページの本体・変更履歴 | HTML/CSS、表記ガイドライン、NGワードチェッカー |
-| **Googleドライブ**「戦略MG研修HPプロジェクト」 | 素材・共有資料 | 写真、ロゴ、原稿（Googleドキュメント）、見積・契約書類 |
-| **Notion**「戦略MG研修HPプロジェクト」 | 進行管理・議事録 | タスク、決定事項、打合せメモ |
+| **[Googleドライブ](https://drive.google.com/drive/folders/1LiZqH4jrbWBKLZte-V2SFGckyL_bxfQY)**「戦略MG研修HPプロジェクト」 | 素材・共有資料 | 写真、ロゴ、原稿（Googleドキュメント）、見積・契約書類 |
+| **[Notion](https://app.notion.com/p/4141bcaf88a78188b140d8cf7af9af0e)**「戦略MG研修HPプロジェクト」 | 進行管理・議事録 | タスク、決定事項、打合せメモ |
 
 ルール：**決めたことは Notion、作ったものは GitHub / ドライブ**。迷ったら Notion に記録してリンクを貼る。
 
