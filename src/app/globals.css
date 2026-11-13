@@ -1,0 +1,45 @@
+@import "tailwindcss";
+@import "@xyflow/react/dist/style.css";
+
+:root {
+  --line-green: #06c755;
+  --talk-bg: #8cabd8;
+}
+
+html,
+body {
+  height: 100%;
+  margin: 0;
+  background: #f1f5f9;
+  color: #0f172a;
+  font-family: "Hiragino Sans", "Hiragino Kaku Gothic ProN", "Noto Sans JP", "Yu Gothic", Meiryo, sans-serif;
+}
+
+/* React Flow の見た目調整 */
+.react-flow__handle {
+  width: 12px;
+  height: 12px;
+  border: 2px solid #fff;
+  background: #94a3b8;
+}
+.react-flow__handle:hover {
+  background: var(--line-green);
+}
+.react-flow__edge-textbg {
+  fill: #fff;
+}
+.react-flow__node.selected > div {
+  box-shadow: 0 0 0 3px var(--line-green), 0 8px 24px rgba(0, 0, 0, 0.15);
+}
+.presenting .react-flow__handle {
+  opacity: 0;
+}
+
+.scroll-thin::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+.scroll-thin::-webkit-scrollbar-thumb {
+  background: rgba(0, 0, 0, 0.2);
+  border-radius: 3px;
+}

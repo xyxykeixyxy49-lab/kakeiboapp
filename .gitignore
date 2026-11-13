@@ -1,0 +1,19 @@
+# 依存パッケージ・ビルド成果物
+/node_modules
+/.next
+/out
+/build
+*.tsbuildinfo
+next-env.d.ts
+
+# 秘密情報(APIキーなど)は絶対にGitHubへ上げない
+.env
+.env.*
+!.env.example
+
+# Vercel
+.vercel
+
+# その他
+.DS_Store
+npm-debug.log*
