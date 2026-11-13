@@ -43,3 +43,29 @@ body {
   background: rgba(0, 0, 0, 0.2);
   border-radius: 3px;
 }
+
+/* スマホ・タブレット(指で操作):つなぐ丸を大きくして押しやすく */
+@media (pointer: coarse) {
+  .react-flow__handle {
+    width: 22px;
+    height: 22px;
+  }
+  .react-flow__controls-button {
+    width: 34px;
+    height: 34px;
+  }
+}
+
+/* 「つなぐ」の途中:つなぎ先候補を分かりやすく */
+.connecting .react-flow__node {
+  cursor: crosshair;
+}
+.connecting .react-flow__node:not(.selected) > div {
+  box-shadow: 0 0 0 2px rgba(6, 199, 85, 0.5), 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+@media (max-width: 767px) {
+  .desktop-only {
+    display: none !important;
+  }
+}

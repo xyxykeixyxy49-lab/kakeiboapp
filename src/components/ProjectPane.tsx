@@ -11,7 +11,7 @@ const STATUS_LABELS: Record<ProjectStatus, { label: string; cls: string }> = {
   fixed: { label: "確定", cls: "bg-emerald-100 text-emerald-700" },
 };
 
-export default function ProjectPane() {
+export default function ProjectPane({ embedded = false }: { embedded?: boolean }) {
   const projects = useEditor((s) => s.projects);
   const currentId = useEditor((s) => s.currentProjectId);
   const selectProject = useEditor((s) => s.selectProject);
@@ -27,7 +27,7 @@ export default function ProjectPane() {
   }, [projects, q]);
 
   return (
-    <aside className="flex w-64 shrink-0 flex-col border-r border-slate-200 bg-white">
+    <aside className={`flex flex-col bg-white ${embedded ? "h-full w-full" : "w-64 shrink-0 border-r border-slate-200"}`}>
       <div className="space-y-2 border-b border-slate-100 p-3">
         <button
           onClick={createProject}
@@ -43,7 +43,7 @@ export default function ProjectPane() {
         />
       </div>
 
-      <ul className="scroll-thin min-h-0 flex-1 overflow-y-auto">
+      <ul className="scroll-thin min-h-24 flex-1 overflow-y-auto">
         {filtered.map((p) => (
           <li key={p.id}>
             <button
@@ -82,7 +82,7 @@ function ProjectSettings() {
   const field = "w-full rounded border border-slate-200 px-2 py-1 text-sm outline-none focus:border-[#06c755]";
 
   return (
-    <div className="space-y-2 border-t border-slate-200 bg-slate-50 p-3 text-sm">
+    <div className="scroll-thin max-h-[55%] space-y-2 overflow-y-auto border-t border-slate-200 bg-slate-50 p-3 text-sm">
       <div className="text-xs font-bold text-slate-500">案件の設定</div>
       <label className="block">
         <span className="text-xs text-slate-500">案件名</span>

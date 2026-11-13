@@ -5,14 +5,29 @@ import LinePreview from "./LinePreview";
 import EditPanel from "./EditPanel";
 import CommentsPanel from "./CommentsPanel";
 
+/** 未解決コメント数(選択中のノード) */
+export function useOpenCommentCount() {
+  return useEditor((s) => s.comments.filter((c) => c.nodeId === s.selectedNodeId && !c.parentId && !c.resolved).length);
+}
+
+/** タブの中身(PCでは右ペイン、スマホでは1画面として使う) */
+export function RightContent({ tab }: { tab: RightTab }) {
+  if (tab === "preview")
+    return (
+      <div className="h-full bg-slate-100 p-3 md:p-4">
+        <LinePreview />
+      </div>
+    );
+  if (tab === "edit") return <EditPanel />;
+  return <CommentsPanel />;
+}
+
 export default function RightPane() {
   const tab = useEditor((s) => s.rightTab);
   const setTab = useEditor((s) => s.setRightTab);
   const presentation = useEditor((s) => s.presentation);
   const role = useEditor((s) => s.role);
-  const openCount = useEditor(
-    (s) => s.comments.filter((c) => c.nodeId === s.selectedNodeId && !c.parentId && !c.resolved).length,
-  );
+  const openCount = useOpenCommentCount();
 
   if (presentation) {
     return (
@@ -47,13 +62,7 @@ export default function RightPane() {
         ))}
       </nav>
       <div className="scroll-thin min-h-0 flex-1 overflow-y-auto">
-        {tab === "preview" && (
-          <div className="h-full bg-slate-100 p-4">
-            <LinePreview />
-          </div>
-        )}
-        {tab === "edit" && <EditPanel />}
-        {tab === "comments" && <CommentsPanel />}
+        <RightContent tab={tab} />
       </div>
     </aside>
   );

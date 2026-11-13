@@ -5,6 +5,7 @@ import { Handle, NodeToolbar, Position, type Node, type NodeProps } from "@xyflo
 import type { FlowButton, FlowNode, ToolKind } from "@/lib/types";
 import { getKindDef } from "@/lib/templates";
 import { useEditor } from "@/store/editor";
+import NodeActions from "./NodeActions";
 
 export type FlowNodeData = {
   node: FlowNode;
@@ -15,9 +16,33 @@ export type FlowNodeData = {
 
 export type FlowRFNode = Node<FlowNodeData, "flow">;
 
-function ButtonRow({ b, readOnly, color }: { b: FlowButton; readOnly: boolean; color: string }) {
+function ButtonRow({
+  b,
+  nodeId,
+  readOnly,
+  color,
+  selected,
+}: {
+  b: FlowButton;
+  nodeId: string;
+  readOnly: boolean;
+  color: string;
+  selected: boolean;
+}) {
+  const pending = useEditor((s) => s.pendingConnect?.handleId === `btn:${b.id}`);
   return (
-    <div className="relative flex items-center justify-between rounded border border-slate-200 bg-white px-2 py-1 text-xs">
+    <div
+      onClick={(e) => {
+        // 選択中のノードのボタンをタップ → つなぎ先を選ぶモードへ
+        if (!selected || readOnly || useEditor.getState().pendingConnect) return;
+        e.stopPropagation();
+        useEditor.getState().setPendingConnect({ nodeId, handleId: `btn:${b.id}`, label: b.label || "ボタン" });
+      }}
+      className={`relative flex items-center justify-between rounded border px-2 py-1 text-xs ${
+        pending ? "border-[#06c755] bg-emerald-50 ring-2 ring-[#06c755]" : "border-slate-200 bg-white"
+      } ${selected && !readOnly ? "cursor-pointer hover:border-[#06c755]" : ""}`}
+      title={selected && !readOnly ? "タップしてつなぎ先を選ぶ" : undefined}
+    >
       <span className="truncate">{b.label || "(未入力)"}</span>
       {!b.targetId && <span className="ml-1 shrink-0 text-[10px] text-slate-300">未接続</span>}
       <Handle
@@ -34,56 +59,16 @@ function ButtonRow({ b, readOnly, color }: { b: FlowButton; readOnly: boolean; c
 function FlowNodeCard({ data, selected }: NodeProps<FlowRFNode>) {
   const { node, tool, commentCount, readOnly } = data;
   const def = getKindDef(tool, node.kind);
-  const addBranch = useEditor((s) => s.addBranch);
-  const addNext = useEditor((s) => s.addNext);
-  const duplicateNode = useEditor((s) => s.duplicateNode);
-  const deleteNodes = useEditor((s) => s.deleteNodes);
-  const setRightTab = useEditor((s) => s.setRightTab);
-
   const branching = def.hasButtons || def.hasCards;
-  const canBranch = branching || node.kind === "text";
   const thumb = node.images[0];
   const bodyText = node.kind === "carousel" ? "" : node.body;
 
   return (
     <>
       {!readOnly && (
-        <NodeToolbar isVisible={selected} position={Position.Top} className="flex gap-1" style={{ zIndex: 1000 }}>
-          {canBranch && (
-            <button
-              onClick={() => addBranch(node.id)}
-              className="rounded-md bg-[#06c755] px-2.5 py-1 text-xs font-semibold text-white shadow hover:bg-[#05b34c]"
-            >
-              ＋ 分岐を追加
-            </button>
-          )}
-          <button
-            onClick={() => addNext(node.id)}
-            className="rounded-md bg-white px-2.5 py-1 text-xs font-semibold text-slate-700 shadow ring-1 ring-slate-200 hover:bg-slate-50"
-          >
-            ＋ 次を追加
-          </button>
-          <button
-            onClick={() => setRightTab("edit")}
-            className="rounded-md bg-white px-2 py-1 text-xs text-slate-700 shadow ring-1 ring-slate-200 hover:bg-slate-50"
-            title="詳細を編集"
-          >
-            ✎
-          </button>
-          <button
-            onClick={() => duplicateNode(node.id)}
-            className="rounded-md bg-white px-2 py-1 text-xs text-slate-700 shadow ring-1 ring-slate-200 hover:bg-slate-50"
-            title="複製"
-          >
-            ⧉
-          </button>
-          <button
-            onClick={() => deleteNodes([node.id])}
-            className="rounded-md bg-white px-2 py-1 text-xs text-red-500 shadow ring-1 ring-slate-200 hover:bg-red-50"
-            title="削除 (Delete)"
-          >
-            🗑
-          </button>
+        // スマホでは画面下のバーに出すので、ここではPCのみ
+        <NodeToolbar isVisible={selected} position={Position.Top} style={{ zIndex: 1000 }} className="desktop-only">
+          <NodeActions node={node} tool={tool} />
         </NodeToolbar>
       )}
 
@@ -119,7 +104,7 @@ function FlowNodeCard({ data, selected }: NodeProps<FlowRFNode>) {
           {def.hasButtons && node.buttons.length > 0 && (
             <div className={node.kind === "richmenu" ? "grid grid-cols-2 gap-1" : "space-y-1"}>
               {node.buttons.map((b) => (
-                <ButtonRow key={b.id} b={b} readOnly={readOnly} color={def.color} />
+                <ButtonRow key={b.id} b={b} nodeId={node.id} readOnly={readOnly} color={def.color} selected={!!selected} />
               ))}
             </div>
           )}
@@ -129,7 +114,7 @@ function FlowNodeCard({ data, selected }: NodeProps<FlowRFNode>) {
               <div key={c.id} className="space-y-1 rounded border border-amber-200 bg-amber-50/50 p-1.5">
                 <div className="truncate text-xs font-semibold">🃏 {c.title || "(カード)"}</div>
                 {c.buttons.map((b) => (
-                  <ButtonRow key={b.id} b={b} readOnly={readOnly} color={def.color} />
+                  <ButtonRow key={b.id} b={b} nodeId={node.id} readOnly={readOnly} color={def.color} selected={!!selected} />
                 ))}
               </div>
             ))}

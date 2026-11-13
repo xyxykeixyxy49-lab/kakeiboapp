@@ -19,6 +19,8 @@ import {
 import { useCurrentProject, useEditor } from "@/store/editor";
 import { getKindDef, getKindsForTool } from "@/lib/templates";
 import FlowNodeCard, { type FlowRFNode } from "./FlowNodeCard";
+import NodeActions from "./NodeActions";
+import { useIsMobile } from "@/lib/useIsMobile";
 
 const nodeTypes = { flow: FlowNodeCard };
 const DRAG_TYPE = "application/x-line-node-kind";
@@ -30,8 +32,13 @@ export default function FlowCanvas() {
   const selectedNodeId = useEditor((s) => s.selectedNodeId);
   const presentation = useEditor((s) => s.presentation);
   const role = useEditor((s) => s.role);
-  const { selectNode, moveNodes, deleteNodes, connect, addNode, layoutProject } = useEditor.getState();
+  const canvasFull = useEditor((s) => s.canvasFull);
+  const pendingConnect = useEditor((s) => s.pendingConnect);
+  const previewOpen = useEditor((s) => s.mobileView === "preview");
+  const { selectNode, moveNodes, deleteNodes, connect, addNode, layoutProject, setPendingConnect, setCanvasFull, setMobileView } =
+    useEditor.getState();
   const readOnly = presentation || role !== "admin";
+  const isMobile = useIsMobile();
 
   const { screenToFlowPosition, fitView } = useReactFlow();
   const wrapper = useRef<HTMLDivElement>(null);
@@ -65,13 +72,14 @@ export default function FlowCanvas() {
     const ns = useEditor.getState().nodes.filter((n) => n.projectId === project.id);
     if (!ns.length) return;
     const minX = Math.min(...ns.map((n) => n.position.x));
-    const head = ns.filter((n) => n.position.x < minX + 1000);
+    const w = wrapper.current?.clientWidth ?? 1000;
+    const head = ns.filter((n) => n.position.x < minX + (w < 600 ? 450 : 1000));
     fitView({ nodes: head.map((n) => ({ id: n.id })), padding: 0.15, maxZoom: 1, duration: 300 });
   }, [project.id, fitView]);
   useEffect(() => {
     const t = setTimeout(fitStart, 80);
     return () => clearTimeout(t);
-  }, [fitStart, presentation]);
+  }, [fitStart, presentation, canvasFull]);
 
   const [selEdge, setSelEdge] = useState<string | null>(null);
   const baseEdges: Edge[] = useMemo(() => {
@@ -183,17 +191,35 @@ export default function FlowCanvas() {
   };
 
   return (
-    <div ref={wrapper} className="h-full w-full" onDragOver={(e) => e.preventDefault()} onDrop={onDrop}>
+    <div ref={wrapper} className={`relative h-full w-full ${pendingConnect ? "connecting" : ""}`} onDragOver={(e) => e.preventDefault()} onDrop={onDrop}>
       <ReactFlow<FlowRFNode, Edge>
         nodes={rfNodes}
         edges={edges}
         nodeTypes={nodeTypes}
         onNodesChange={onNodesChange}
         onNodeClick={(_, n) => {
+          // 「つなぐ」の途中なら、タップしたノードをつなぎ先にする
+          const pc = useEditor.getState().pendingConnect;
+          if (pc) {
+            if (n.data.node.kind === "trigger") {
+              alert("「起点」には線をつなげられません。別のノードを選んでください");
+              return;
+            }
+            if (n.id !== pc.nodeId) {
+              connect(pc.nodeId, pc.handleId, n.id);
+              setPendingConnect(null);
+              selectNode(pc.nodeId);
+            }
+            return;
+          }
           selectNode(n.id);
           setSelEdge(null);
         }}
         onPaneClick={() => {
+          if (useEditor.getState().pendingConnect) {
+            setPendingConnect(null);
+            return;
+          }
           selectNode(null);
           setSelEdge(null);
         }}
@@ -225,7 +251,7 @@ export default function FlowCanvas() {
         proOptions={{ hideAttribution: true }}
       >
         <Background variant={BackgroundVariant.Dots} gap={18} size={1.2} color="#cbd5e1" />
-        <Controls showInteractive={false} />
+        <Controls showInteractive={false} className="desktop-only" />
         {!presentation && <MiniMap pannable zoomable className="!hidden md:!block" nodeColor={(n) => getKindDef(project.tool, (n as FlowRFNode).data.node.kind).color} />}
 
         {!readOnly && (
@@ -233,32 +259,68 @@ export default function FlowCanvas() {
             <Palette onAdd={addAtCenter} />
           </Panel>
         )}
-        {!readOnly && (
-          <Panel position="top-right" className="flex gap-1">
+        <Panel position="top-right" className="flex gap-1">
+          {canvasFull && (
             <button
-              onClick={() => fitView({ padding: 0.1, duration: 300 })}
-              className="rounded-md bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 shadow ring-1 ring-slate-200 hover:bg-slate-50"
+              onClick={() => setMobileView(previewOpen ? "canvas" : "preview")}
+              className="rounded-md bg-white px-2.5 py-2 text-xs font-semibold text-slate-700 shadow ring-1 ring-slate-200 hover:bg-slate-50 md:px-3 md:py-1.5"
             >
-              ⛶ 全体を表示
+              📱<span className="hidden md:inline"> プレビュー</span>
             </button>
+          )}
+          <button onClick={() => fitView({ padding: 0.1, duration: 300 })} className="rounded-md bg-white px-2.5 py-2 text-xs font-semibold text-slate-700 shadow ring-1 ring-slate-200 hover:bg-slate-50 md:px-3 md:py-1.5" title="全体を表示">
+            🔍<span className="hidden md:inline"> 全体を表示</span>
+          </button>
+          {!readOnly && (
             <button
               onClick={() => {
                 layoutProject();
                 setTimeout(fitStart, 50);
               }}
-              className="rounded-md bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 shadow ring-1 ring-slate-200 hover:bg-slate-50"
+              className="rounded-md bg-white px-2.5 py-2 text-xs font-semibold text-slate-700 shadow ring-1 ring-slate-200 hover:bg-slate-50 md:px-3 md:py-1.5"
               title="ノードを自動で並べ直します"
             >
-              ⇶ 自動で整列
+              ⇶<span className="hidden md:inline"> 自動で整列</span>
             </button>
+          )}
+          <button
+            onClick={() => setCanvasFull(!canvasFull)}
+            className={canvasFull ? "rounded-md bg-slate-800 px-2.5 py-2 text-xs font-semibold text-white shadow md:px-3 md:py-1.5" : "rounded-md bg-white px-2.5 py-2 text-xs font-semibold text-slate-700 shadow ring-1 ring-slate-200 hover:bg-slate-50 md:px-3 md:py-1.5"}
+            title={canvasFull ? "全画面を終了 (Esc)" : "構成図を全画面で表示"}
+          >
+            {canvasFull ? "✕" : "⛶"}
+            <span className="hidden md:inline">{canvasFull ? " 全画面を終了" : " 全画面"}</span>
+          </button>
+        </Panel>
+        {pendingConnect && (
+          <Panel position="bottom-center" className="!mb-6">
+            <div className="flex max-w-[calc(100vw-32px)] items-center gap-2 rounded-full bg-slate-900 py-2 pl-4 pr-2 text-sm text-white shadow-lg">
+              <span className="min-w-0 truncate">「{pendingConnect.label}」</span>
+              <span className="shrink-0 whitespace-nowrap">のつなぎ先を<b>タップ</b></span>
+              <button onClick={() => setPendingConnect(null)} className="shrink-0 whitespace-nowrap rounded-full bg-white/20 px-3 py-1.5 text-xs">
+                やめる
+              </button>
+            </div>
           </Panel>
         )}
         {!readOnly && !nodes.length && (
           <Panel position="bottom-center">
-            <div className="rounded bg-white px-3 py-2 text-sm text-slate-500 shadow">左上の部品をクリック、またはドラッグして追加</div>
+            <div className="rounded bg-white px-3 py-2 text-sm text-slate-500 shadow">左上の「部品を追加」から追加してください</div>
           </Panel>
         )}
       </ReactFlow>
+        {isMobile && !readOnly && !pendingConnect && selectedNodeId && nodes.some((n) => n.id === selectedNodeId) && (
+          // スマホ:選んだノードの操作は画面下に固定で出す
+          <div className="absolute inset-x-0 bottom-0 z-10">
+            <div className="border-t border-slate-200 bg-white/95 px-2 pb-2 pt-2 shadow-[0_-4px_12px_rgba(0,0,0,0.06)] backdrop-blur">
+              <div className="mb-1.5 truncate px-1 text-xs text-slate-500">
+                選択中:<b className="text-slate-700">{nodes.find((n) => n.id === selectedNodeId)!.title}</b>
+                <span className="ml-1 text-slate-400">(ボタンをタップしてもつなげます)</span>
+              </div>
+              <NodeActions node={nodes.find((n) => n.id === selectedNodeId)!} tool={project.tool} mobile />
+            </div>
+          </div>
+        )}
     </div>
   );
 }
@@ -269,12 +331,12 @@ function Palette({ onAdd }: { onAdd: (kind: string) => void }) {
   const kinds = getKindsForTool(project.tool);
   return (
     <div className="w-44 rounded-lg bg-white/95 shadow-md ring-1 ring-slate-200 backdrop-blur">
-      <button onClick={() => setOpen(!open)} className="flex w-full items-center justify-between px-3 py-2 text-xs font-bold text-slate-600">
-        <span>部品を追加</span>
+      <button onClick={() => setOpen(!open)} className="flex w-full items-center justify-between px-3 py-2.5 text-xs font-bold text-slate-600 md:py-2">
+        <span>＋ 部品を追加</span>
         <span>{open ? "▴" : "▾"}</span>
       </button>
       {open && (
-        <div className="scroll-thin max-h-[60vh] space-y-0.5 overflow-y-auto px-1.5 pb-1.5">
+        <div className="scroll-thin max-h-[50vh] space-y-0.5 md:max-h-[60vh] overflow-y-auto px-1.5 pb-1.5">
           {kinds.map((k) => (
             <button
               key={k.key}
@@ -283,9 +345,12 @@ function Palette({ onAdd }: { onAdd: (kind: string) => void }) {
                 e.dataTransfer.setData(DRAG_TYPE, k.key);
                 e.dataTransfer.effectAllowed = "move";
               }}
-              onClick={() => onAdd(k.key)}
+              onClick={() => {
+                onAdd(k.key);
+                if (window.matchMedia("(max-width: 767px)").matches) setOpen(false);
+              }}
               title={k.description}
-              className="flex w-full cursor-grab items-center gap-2 rounded px-2 py-1.5 text-left text-xs hover:bg-slate-100 active:cursor-grabbing"
+              className="flex w-full cursor-grab items-center gap-2 rounded px-2 py-2 text-left text-xs md:py-1.5 hover:bg-slate-100 active:cursor-grabbing"
             >
               <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded text-[11px]" style={{ background: `${k.color}22` }}>
                 {k.icon}

@@ -9,6 +9,14 @@ import { autoLayout } from "@/lib/layout";
 
 export type RightTab = "preview" | "edit" | "comments";
 export type Role = "admin" | "viewer";
+/** スマホでどの画面を出しているか */
+export type MobileView = "canvas" | RightTab;
+/** タップでつなぐ途中の情報 */
+export interface PendingConnect {
+  nodeId: string;
+  handleId: string;
+  label: string;
+}
 
 interface Snapshot {
   projects: Project[];
@@ -25,6 +33,11 @@ interface EditorState {
   rightTab: RightTab;
   leftCollapsed: boolean;
   presentation: boolean;
+  /** 構成図だけを全画面表示 */
+  canvasFull: boolean;
+  mobileView: MobileView;
+  projectDrawer: boolean;
+  pendingConnect: PendingConnect | null;
   past: Snapshot[];
   future: Snapshot[];
 
@@ -33,6 +46,10 @@ interface EditorState {
   toggleLeft: () => void;
   setPresentation: (on: boolean) => void;
   selectNode: (id: string | null) => void;
+  setCanvasFull: (on: boolean) => void;
+  setMobileView: (v: MobileView) => void;
+  setProjectDrawer: (on: boolean) => void;
+  setPendingConnect: (p: PendingConnect | null) => void;
 
   // 案件
   selectProject: (id: string) => void;
@@ -141,15 +158,30 @@ export const useEditor = create<EditorState>((set, get) => {
     rightTab: "preview",
     leftCollapsed: false,
     presentation: false,
+    canvasFull: false,
+    mobileView: "canvas",
+    projectDrawer: false,
+    pendingConnect: null,
     past: [],
     future: [],
 
-    setRightTab: (rightTab) => set({ rightTab }),
+    setRightTab: (rightTab) => set({ rightTab, mobileView: rightTab }),
+    setCanvasFull: (canvasFull) => set({ canvasFull }),
+    setMobileView: (mobileView) => set(mobileView === "canvas" ? { mobileView } : { mobileView, rightTab: mobileView }),
+    setProjectDrawer: (projectDrawer) => set({ projectDrawer }),
+    setPendingConnect: (pendingConnect) => set({ pendingConnect }),
     toggleLeft: () => set((s) => ({ leftCollapsed: !s.leftCollapsed })),
-    setPresentation: (presentation) => set({ presentation, rightTab: presentation ? "preview" : get().rightTab }),
+    setPresentation: (presentation) =>
+      set({
+        presentation,
+        rightTab: presentation ? "preview" : get().rightTab,
+        mobileView: presentation ? "canvas" : get().mobileView,
+        pendingConnect: null,
+      }),
     selectNode: (selectedNodeId) => set({ selectedNodeId }),
 
-    selectProject: (id) => set({ currentProjectId: id, selectedNodeId: null, past: [], future: [] }),
+    selectProject: (id) =>
+      set({ currentProjectId: id, selectedNodeId: null, past: [], future: [], projectDrawer: false, mobileView: "canvas", pendingConnect: null }),
     createProject: () => {
       const id = nanoid(10);
       const p: Project = {
@@ -171,6 +203,8 @@ export const useEditor = create<EditorState>((set, get) => {
         selectedNodeId: null,
         past: [],
         future: [],
+        projectDrawer: false,
+        mobileView: "canvas",
       }));
     },
     updateProject: (id, patch) =>
