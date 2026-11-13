@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import { useCurrentProject, useEditor } from "@/store/editor";
 import { TOOL_LABELS } from "@/lib/templates";
+import { addSampleProject, logout, newProject, removeProject } from "@/lib/sync";
 import type { ProjectStatus, ToolKind } from "@/lib/types";
 
 const STATUS_LABELS: Record<ProjectStatus, { label: string; cls: string }> = {
@@ -15,8 +16,19 @@ export default function ProjectPane({ embedded = false }: { embedded?: boolean }
   const projects = useEditor((s) => s.projects);
   const currentId = useEditor((s) => s.currentProjectId);
   const selectProject = useEditor((s) => s.selectProject);
-  const createProject = useEditor((s) => s.createProject);
+  const mode = useEditor((s) => s.mode);
   const [q, setQ] = useState("");
+  const [busy, setBusy] = useState(false);
+  const run = async (fn: () => Promise<void>) => {
+    setBusy(true);
+    try {
+      await fn();
+    } catch (e) {
+      alert(`うまくいきませんでした:${(e as Error).message}`);
+    } finally {
+      setBusy(false);
+    }
+  };
 
   const filtered = useMemo(() => {
     const k = q.trim().toLowerCase();
@@ -30,10 +42,11 @@ export default function ProjectPane({ embedded = false }: { embedded?: boolean }
     <aside className={`flex flex-col bg-white ${embedded ? "h-full w-full" : "w-64 shrink-0 border-r border-slate-200"}`}>
       <div className="space-y-2 border-b border-slate-100 p-3">
         <button
-          onClick={createProject}
-          className="w-full rounded-md bg-[#06c755] py-2 text-sm font-semibold text-white hover:bg-[#05b34c]"
+          onClick={() => run(() => newProject())}
+          disabled={busy}
+          className="w-full rounded-md bg-[#06c755] py-2 text-sm font-semibold text-white hover:bg-[#05b34c] disabled:opacity-50"
         >
-          + 新しい案件
+          {busy ? "作成中…" : "+ 新しい案件"}
         </button>
         <input
           value={q}
@@ -65,10 +78,31 @@ export default function ProjectPane({ embedded = false }: { embedded?: boolean }
             </button>
           </li>
         ))}
-        {!filtered.length && <li className="p-4 text-center text-sm text-slate-400">見つかりません</li>}
+        {!filtered.length && (
+          <li className="space-y-2 p-4 text-center text-sm text-slate-400">
+            <div>{q ? "見つかりません" : "まだ案件がありません"}</div>
+            {!q && (
+              <button
+                onClick={() => run(addSampleProject)}
+                disabled={busy}
+                className="rounded border border-slate-300 px-2 py-1 text-xs text-slate-600 hover:bg-slate-50"
+              >
+                サンプル案件を追加して試す
+              </button>
+            )}
+          </li>
+        )}
       </ul>
 
       <ProjectSettings />
+      {mode === "notion" && (
+        <div className="flex items-center justify-between border-t border-slate-200 px-3 py-1.5 text-[11px] text-slate-400">
+          <span>保存先:Notion</span>
+          <button onClick={logout} className="hover:text-slate-700 hover:underline">
+            ログアウト
+          </button>
+        </div>
+      )}
     </aside>
   );
 }
@@ -76,7 +110,7 @@ export default function ProjectPane({ embedded = false }: { embedded?: boolean }
 function ProjectSettings() {
   const project = useCurrentProject();
   const updateProject = useEditor((s) => s.updateProject);
-  const deleteProject = useEditor((s) => s.deleteProject);
+
   if (!project) return null;
 
   const field = "w-full rounded border border-slate-200 px-2 py-1 text-sm outline-none focus:border-[#06c755]";
@@ -137,7 +171,8 @@ function ProjectSettings() {
 
       <button
         onClick={() => {
-          if (confirm(`「${project.name}」を削除しますか?`)) deleteProject(project.id);
+          if (!confirm(`「${project.name}」を削除しますか?\n(Notionではゴミ箱に移動します。30日以内なら元に戻せます)`)) return;
+          removeProject(project.id).catch((e) => alert(`削除できませんでした:${(e as Error).message}`));
         }}
         className="w-full rounded py-1 text-xs text-red-500 hover:bg-red-50"
       >

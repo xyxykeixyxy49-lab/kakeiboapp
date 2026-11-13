@@ -4,7 +4,6 @@ import { create } from "zustand";
 import { nanoid } from "nanoid";
 import type { FlowButton, FlowComment, FlowImage, FlowNode, Project, ToolKind } from "@/lib/types";
 import { getKindDef } from "@/lib/templates";
-import { sampleComments, sampleNodes, sampleProjects } from "@/lib/sample";
 import { autoLayout } from "@/lib/layout";
 
 export type RightTab = "preview" | "edit" | "comments";
@@ -23,8 +22,19 @@ interface Snapshot {
   nodes: FlowNode[];
 }
 
+/** 保存先 */
+export type DataMode = "loading" | "local" | "notion";
+/** 同期の状態(画面右上に表示) */
+export type SyncStatus = "saved" | "syncing" | "error" | "offline" | "local";
+
 interface EditorState {
   role: Role;
+  mode: DataMode;
+  needLogin: boolean;
+  syncStatus: SyncStatus;
+  syncError: string | null;
+  pendingCount: number;
+  loadingProject: boolean;
   projects: Project[];
   nodes: FlowNode[];
   comments: FlowComment[];
@@ -53,6 +63,7 @@ interface EditorState {
 
   // 案件
   selectProject: (id: string) => void;
+  insertProject: (p: Project, nodes: FlowNode[]) => void;
   createProject: () => void;
   updateProject: (id: string, patch: Partial<Project>) => void;
   deleteProject: (id: string) => void;
@@ -150,10 +161,17 @@ export const useEditor = create<EditorState>((set, get) => {
 
   return {
     role: "admin",
-    projects: sampleProjects,
-    nodes: sampleNodes,
-    comments: sampleComments,
-    currentProjectId: sampleProjects[0]?.id ?? null,
+    mode: "loading",
+    needLogin: false,
+    syncStatus: "saved",
+    syncError: null,
+    pendingCount: 0,
+    loadingProject: false,
+    // 起動時に sync.ts がブラウザ内の保存データ/Notionから読み込む
+    projects: [],
+    nodes: [],
+    comments: [],
+    currentProjectId: null,
     selectedNodeId: null,
     rightTab: "preview",
     leftCollapsed: false,
@@ -182,6 +200,17 @@ export const useEditor = create<EditorState>((set, get) => {
 
     selectProject: (id) =>
       set({ currentProjectId: id, selectedNodeId: null, past: [], future: [], projectDrawer: false, mobileView: "canvas", pendingConnect: null }),
+    insertProject: (p, nodes) =>
+      set((s) => ({
+        projects: [p, ...s.projects],
+        nodes: [...s.nodes, ...nodes],
+        currentProjectId: p.id,
+        selectedNodeId: null,
+        past: [],
+        future: [],
+        projectDrawer: false,
+        mobileView: "canvas",
+      })),
     createProject: () => {
       const id = nanoid(10);
       const p: Project = {

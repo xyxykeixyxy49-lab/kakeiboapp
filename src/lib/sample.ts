@@ -1,4 +1,4 @@
-import type { FlowComment, FlowNode, Project } from "./types";
+import type { FlowButton, FlowComment, FlowNode, Project } from "./types";
 import { autoLayout } from "./layout";
 
 // 動作確認用のサンプル案件(段階2以降はNotionから読み込む)
@@ -152,3 +152,21 @@ export const sampleComments: FlowComment[] = [
     createdAt: "2026-11-12T10:07:00.000Z",
   },
 ];
+
+/**
+ * サンプル案件を、新しい案件ID・新しいノードIDで複製する
+ * (同じサンプルを何度入れてもIDがぶつからないように)
+ */
+export function cloneNodes(nodes: FlowNode[], projectId: string, newId: () => string): FlowNode[] {
+  const map = new Map(nodes.map((n) => [n.id, newId()]));
+  const re = (id: string | null) => (id ? (map.get(id) ?? null) : null);
+  const reBtn = (b: FlowButton) => ({ ...b, id: newId(), targetId: re(b.targetId) });
+  return nodes.map((n) => ({
+    ...n,
+    id: map.get(n.id)!,
+    projectId,
+    nextId: re(n.nextId),
+    buttons: n.buttons.map(reBtn),
+    cards: n.cards.map((c) => ({ ...c, id: newId(), buttons: c.buttons.map(reBtn) })),
+  }));
+}
