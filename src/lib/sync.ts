@@ -61,20 +61,24 @@ function pendingCount() {
   );
 }
 
+/** Notionからの読み込みに失敗した理由(成功するまで「同期に失敗」を出し続ける) */
+let loadError: string | null = null;
+
 function refreshStatus(extra?: { error?: string | null }) {
   const s = st();
   const count = pendingCount();
   let syncStatus = s.syncStatus;
+  const error = extra?.error ?? loadError;
   if (s.mode === "local") syncStatus = "local";
   else if (typeof navigator !== "undefined" && !navigator.onLine && count) syncStatus = "offline";
-  else if (extra?.error) syncStatus = "error";
+  else if (error) syncStatus = "error";
   else if (syncing) syncStatus = "syncing";
   else if (count) syncStatus = s.syncStatus === "error" ? "error" : "syncing";
   else syncStatus = "saved";
   useEditor.setState({
     syncStatus,
     pendingCount: count,
-    ...(extra && "error" in extra ? { syncError: extra.error ?? null } : {}),
+    ...((extra && "error" in extra) || loadError ? { syncError: error ?? null } : {}),
   });
 }
 
@@ -254,9 +258,11 @@ export async function loadProjectNodes(pid: string, force = false) {
       past: s.currentProjectId === pid ? [] : s.past,
       future: s.currentProjectId === pid ? [] : s.future,
     }));
+    loadError = null;
     refreshStatus({ error: null });
   } catch (e) {
-    refreshStatus({ error: (e as Error).message });
+    loadError = (e as Error).message;
+    refreshStatus({ error: loadError });
   } finally {
     useEditor.setState({ loadingProject: false });
   }
@@ -346,13 +352,21 @@ async function bootNotion() {
     currentProjectId: cache?.currentProjectId ?? null,
   });
   refreshStatus();
+  await reloadFromNotion();
+}
+
+/** Notionから案件一覧と今の案件のノードを読み直す */
+async function reloadFromNotion() {
   try {
     await loadProjects();
+    loadError = null;
     const pid = st().currentProjectId;
-    if (pid) await loadProjectNodes(pid);
+    if (pid) await loadProjectNodes(pid, true);
+    refreshStatus({ error: null });
     syncOnce();
   } catch (e) {
-    refreshStatus({ error: (e as Error).message });
+    loadError = (e as Error).message;
+    refreshStatus({ error: loadError });
   }
 }
 
@@ -438,5 +452,6 @@ export async function removeProject(id: string) {
 
 /** 失敗したときの「今すぐ再試行」 */
 export function retrySync() {
-  syncOnce();
+  if (loadError) reloadFromNotion();
+  else syncOnce();
 }

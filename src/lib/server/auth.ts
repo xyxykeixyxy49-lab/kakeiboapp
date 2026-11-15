@@ -56,7 +56,15 @@ export function requireNotion(): NextResponse | null {
 }
 
 export function errorResponse(e: unknown) {
-  const msg = e instanceof Error ? e.message : String(e);
-  console.error(msg);
-  return NextResponse.json({ error: msg }, { status: 502 });
+  const raw = e instanceof Error ? e.message : String(e);
+  console.error(raw);
+  // よくある設定ミスは、直し方がわかる日本語にする
+  let msg = raw;
+  if (/Could not find (data_source|database|page)|object_not_found/i.test(raw)) {
+    msg =
+      "Notionのデータベースにアクセスできません。Notionで「LINE構成デザイナー(アプリ用データ)」のページを開き、右上の「•••」→「接続」から、作成したコネクトを追加してください。";
+  } else if (/API token is invalid|unauthorized/i.test(raw)) {
+    msg = "Notionの鍵(NOTION_TOKEN)が正しくありません。Vercelの環境変数を確認してください。";
+  }
+  return NextResponse.json({ error: msg, detail: raw }, { status: 502 });
 }
