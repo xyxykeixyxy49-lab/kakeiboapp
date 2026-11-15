@@ -53,8 +53,17 @@ function applyRemote(patch: Partial<State> | ((s: State) => Partial<State>)) {
   }
 }
 
+/** まだGoogleドライブに送っていない画像 */
+function pendingImages() {
+  if (!st().driveEnabled) return [];
+  const out: { node: FlowNode; image: FlowNode["images"][number] }[] = [];
+  for (const node of st().nodes) for (const image of node.images) if (image.url.startsWith("data:")) out.push({ node, image });
+  return out;
+}
+
 function pendingCount() {
   return (
+    pendingImages().length +
     Object.values(dirty.nodes).reduce((a, m) => a + Object.keys(m).length, 0) +
     Object.values(dirty.deletes).reduce((a, l) => a + l.length, 0) +
     Object.keys(dirty.projects).length
@@ -175,7 +184,13 @@ async function syncOnce() {
   syncing = true;
   refreshStatus();
   let error: string | null = null;
+  let imageError: string | null = null;
   try {
+    // 画像:Googleドライブへ送り、ノードの画像をドライブのものに差し替える(→ノードの変更として下で送られる)
+    // (画像が送れなくても、文字や構成の保存は止めない)
+    await uploadImages().catch((e) => {
+      imageError = (e as Error).message;
+    });
     // 案件(名前・お客様名・ツール・ステータス)
     for (const [pid, ver] of Object.entries(dirty.projects)) {
       const p = st().projects.find((x) => x.id === pid);
@@ -220,8 +235,33 @@ async function syncOnce() {
     error = (e as Error).message;
   } finally {
     syncing = false;
-    refreshStatus({ error });
+    refreshStatus({ error: error ?? imageError });
     scheduleCache();
+  }
+}
+
+async function uploadImages() {
+  for (const { node, image } of pendingImages().slice(0, 4)) {
+    const project = st().projects.find((p) => p.id === node.projectId);
+    if (!project) continue;
+    const blob = await (await fetch(image.url)).blob();
+    const form = new FormData();
+    form.append("file", new File([blob], image.name || "image", { type: blob.type }));
+    form.append("projectId", project.id);
+    form.append("projectName", project.name);
+    form.append("nodeId", node.id);
+    const res = await fetch("/api/images", { method: "POST", body: form });
+    const body = await res.json().catch(() => ({}));
+    if (res.status === 401) useEditor.setState({ needLogin: true });
+    if (!res.ok) throw new Error(body.error ?? `画像の保存に失敗(${res.status})`);
+    // 同じ画像IDのまま中身の場所だけ差し替える(カルーセルのカードから参照しているため)
+    useEditor.setState((s) => ({
+      nodes: s.nodes.map((n) =>
+        n.id !== node.id
+          ? n
+          : { ...n, images: n.images.map((i) => (i.id === image.id ? { ...i, url: body.url, fileId: body.fileId } : i)) },
+      ),
+    }));
   }
 }
 
@@ -310,12 +350,13 @@ export async function startSync() {
 }
 
 async function boot() {
-  let status: { notion: boolean; admin: boolean; passwordConfigured: boolean };
+  let status: { notion: boolean; admin: boolean; passwordConfigured: boolean; drive?: boolean };
   try {
     status = await api("/api/status");
   } catch {
     status = { notion: false, admin: true, passwordConfigured: false };
   }
+  useEditor.setState({ driveEnabled: !!status.drive && status.notion });
 
   if (!status.notion) {
     // Notion未設定:ブラウザ内だけに保存(お試し用)

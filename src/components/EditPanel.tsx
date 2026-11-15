@@ -155,6 +155,7 @@ export default function EditPanel() {
 
       <section>
         <Label>イメージ画像・スクリーンショット</Label>
+        <ImageStorageNote images={node.images} />
         <ImageDrop
           images={node.images}
           onAdd={(imgs) => addImages(node.id, imgs)}
@@ -180,6 +181,26 @@ export default function EditPanel() {
       </button>
     </div>
   );
+}
+
+/** 画像の保存先の説明 */
+function ImageStorageNote({ images }: { images: FlowImage[] }) {
+  const mode = useEditor((s) => s.mode);
+  const drive = useEditor((s) => s.driveEnabled);
+  const waiting = images.filter((i) => i.url.startsWith("data:")).length;
+  if (mode !== "notion") return null;
+  if (!drive)
+    return (
+      <p className="mb-2 rounded bg-amber-50 px-2 py-1.5 text-xs text-amber-800">
+        Googleドライブが未設定のため、画像はこのブラウザ内にだけ保存されます。
+        <a href="/setup/google" className="ml-1 underline">
+          設定する
+        </a>
+      </p>
+    );
+  if (waiting)
+    return <p className="mb-2 text-xs text-sky-700">☁️ {waiting}枚をGoogleドライブへ保存中…</p>;
+  return null;
 }
 
 export function Empty({ text }: { text: string }) {

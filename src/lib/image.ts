@@ -26,6 +26,8 @@ export async function readImage(file: File, maxSize = 1280): Promise<FlowImage> 
     c.height = Math.round(img.height * scale);
     c.getContext("2d")!.drawImage(img, 0, 0, c.width, c.height);
     url = c.toDataURL(file.type === "image/png" ? "image/png" : "image/jpeg", 0.85);
+    // スクショ(PNG)が大きすぎるとサーバーに送れないので、JPEGにして小さくする
+    if (url.length > 3_000_000) url = c.toDataURL("image/jpeg", 0.85);
   }
   return { id: nanoid(8), url, name: file.name || "貼り付け画像" };
 }

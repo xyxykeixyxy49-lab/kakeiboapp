@@ -35,8 +35,10 @@ export interface CarouselCard {
 /** 画像(段階3でGoogleドライブのファイルIDになる) */
 export interface FlowImage {
   id: string;
-  /** 段階1ではブラウザ内のdata URL。段階3以降は /api/images/[fileId] */
+  /** アップロード前はブラウザ内のdata URL。保存後は /api/images/[GoogleドライブのファイルID] */
   url: string;
+  /** GoogleドライブのファイルID(保存後) */
+  fileId?: string;
   name: string;
 }
 

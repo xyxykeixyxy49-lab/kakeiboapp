@@ -97,7 +97,9 @@ export default function ProjectPane({ embedded = false }: { embedded?: boolean }
       <ProjectSettings />
       {mode === "notion" && (
         <div className="flex items-center justify-between border-t border-slate-200 px-3 py-1.5 text-[11px] text-slate-400">
-          <span>保存先:Notion</span>
+          <a href="/setup/google" className="hover:text-slate-700 hover:underline">
+            ☁️ Googleドライブの設定
+          </a>
           <button onClick={logout} className="hover:text-slate-700 hover:underline">
             ログアウト
           </button>

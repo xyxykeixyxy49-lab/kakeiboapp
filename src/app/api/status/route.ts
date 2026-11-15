@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { isAdmin, passwordConfigured } from "@/lib/server/auth";
 import { notionEnabled } from "@/lib/server/notion";
+import { driveEnabled } from "@/lib/server/drive";
 
 export const dynamic = "force-dynamic";
 
@@ -10,5 +11,6 @@ export async function GET() {
     notion: notionEnabled(),
     passwordConfigured: passwordConfigured(),
     admin: await isAdmin(),
+    drive: driveEnabled(),
   });
 }

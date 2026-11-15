@@ -30,6 +30,8 @@ export type SyncStatus = "saved" | "syncing" | "error" | "offline" | "local";
 interface EditorState {
   role: Role;
   mode: DataMode;
+  /** Googleドライブに画像を保存できるか */
+  driveEnabled: boolean;
   needLogin: boolean;
   syncStatus: SyncStatus;
   syncError: string | null;
@@ -162,6 +164,7 @@ export const useEditor = create<EditorState>((set, get) => {
   return {
     role: "admin",
     mode: "loading",
+    driveEnabled: false,
     needLogin: false,
     syncStatus: "saved",
     syncError: null,
