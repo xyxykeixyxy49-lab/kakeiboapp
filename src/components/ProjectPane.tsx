@@ -97,9 +97,14 @@ export default function ProjectPane({ embedded = false }: { embedded?: boolean }
       <ProjectSettings />
       {mode === "notion" && (
         <div className="flex items-center justify-between border-t border-slate-200 px-3 py-1.5 text-[11px] text-slate-400">
-          <a href="/setup/google" className="hover:text-slate-700 hover:underline">
-            ☁️ Googleドライブの設定
-          </a>
+          <span className="flex gap-2">
+            <a href="/setup/google" className="hover:text-slate-700 hover:underline" title="Googleドライブの設定">
+              ☁️ ドライブ
+            </a>
+            <a href="/setup/mcp" className="hover:text-slate-700 hover:underline" title="Claudeとの接続(MCP)">
+              🤖 Claude連携
+            </a>
+          </span>
           <button onClick={logout} className="hover:text-slate-700 hover:underline">
             ログアウト
           </button>

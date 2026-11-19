@@ -5,6 +5,9 @@ import { nanoid } from "nanoid";
 import type { FlowButton, FlowComment, FlowImage, FlowNode, Project, ToolKind } from "@/lib/types";
 import { getKindDef } from "@/lib/templates";
 import { autoLayout } from "@/lib/layout";
+import { allButtons, newNode, setTarget } from "@/lib/flow";
+
+export { allButtons, newNode };
 
 export type RightTab = "preview" | "edit" | "comments";
 export type Role = "admin" | "viewer";
@@ -94,53 +97,6 @@ interface EditorState {
 }
 
 const now = () => new Date().toISOString();
-
-/** ノードが持つすべてのボタン(通常ボタン+カルーセル内ボタン) */
-export function allButtons(node: FlowNode): FlowButton[] {
-  return [...node.buttons, ...node.cards.flatMap((c) => c.buttons)];
-}
-
-/** handleId: "next" または "btn:<ボタンID>" */
-function setTarget(node: FlowNode, handleId: string, targetId: string | null): FlowNode {
-  if (handleId === "next") return { ...node, nextId: targetId };
-  const btnId = handleId.replace(/^btn:/, "");
-  const patchBtn = (b: FlowButton) => (b.id === btnId ? { ...b, targetId } : b);
-  return {
-    ...node,
-    buttons: node.buttons.map(patchBtn),
-    cards: node.cards.map((c) => ({ ...c, buttons: c.buttons.map(patchBtn) })),
-  };
-}
-
-export function newNode(projectId: string, tool: ToolKind, kind: string, position: { x: number; y: number }): FlowNode {
-  const def = getKindDef(tool, kind);
-  const node: FlowNode = {
-    id: nanoid(10),
-    projectId,
-    kind,
-    title: def.label,
-    body: "",
-    buttons: [],
-    cards: [],
-    nextId: null,
-    memo: "",
-    images: [],
-    position,
-  };
-  if (def.hasButtons) {
-    node.buttons = [1, 2].map((i) => ({ id: nanoid(8), label: `${def.defaultButtonLabel ?? "ボタン"}${i}`, targetId: null }));
-  }
-  if (def.hasCards) {
-    node.cards = [1, 2].map((i) => ({
-      id: nanoid(8),
-      title: `カード${i}`,
-      text: "",
-      imageId: null,
-      buttons: [{ id: nanoid(8), label: "詳しく見る", targetId: null }],
-    }));
-  }
-  return node;
-}
 
 export const useEditor = create<EditorState>((set, get) => {
   /** 構成を変える操作の前に呼んで、元に戻せるようにする */

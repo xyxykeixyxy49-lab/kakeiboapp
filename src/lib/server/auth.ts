@@ -1,5 +1,5 @@
 import "server-only";
-import { createHash, timingSafeEqual } from "node:crypto";
+import { createHash, createHmac, timingSafeEqual } from "node:crypto";
 import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 import { notionEnabled } from "./notion";
@@ -67,4 +67,21 @@ export function errorResponse(e: unknown) {
     msg = "Notionの鍵(NOTION_TOKEN)が正しくありません。Vercelの環境変数を確認してください。";
   }
   return NextResponse.json({ error: msg, detail: raw }, { status: 502 });
+}
+
+/**
+ * Claude(MCP)用の合言葉。管理者パスワードから作るので、別の設定はいらない。
+ * パスワードを変えるとこの合言葉も変わり、古いURLは使えなくなる。
+ */
+export function mcpToken() {
+  if (!passwordConfigured()) return null;
+  return createHmac("sha256", process.env.ADMIN_PASSWORD!).update("line-flow-designer:mcp").digest("hex").slice(0, 40);
+}
+
+export function checkMcpToken(input: string) {
+  const t = mcpToken();
+  if (!t) return false;
+  const a = Buffer.from(input);
+  const b = Buffer.from(t);
+  return a.length === b.length && timingSafeEqual(a, b);
 }
