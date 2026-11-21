@@ -96,11 +96,22 @@ function describeFlow(project: Project, nodes: FlowNode[]) {
 
 const text = (s: string) => ({ content: [{ type: "text" as const, text: s }] });
 
+/**
+ * Claudeが改行を「\\n」という2文字のまま送ってくることがあるので、本物の改行に直す
+ * (本文・メモ・カードの説明など、すべての文字の項目が対象)
+ */
+function fixNewlines<T>(v: T): T {
+  if (typeof v === "string") return v.replace(/\\r\\n|\\n/g, "\n") as T;
+  if (Array.isArray(v)) return v.map(fixNewlines) as T;
+  if (v && typeof v === "object") return Object.fromEntries(Object.entries(v).map(([k, x]) => [k, fixNewlines(x)])) as T;
+  return v;
+}
+
 /** エラーは例外ではなく「失敗しました」と返して、Claudeが直して再実行できるようにする */
 function safe<A>(fn: (args: A) => Promise<string>) {
   return async (args: A) => {
     try {
-      return text(await fn(args));
+      return text(await fn(fixNewlines(args)));
     } catch (e) {
       return { ...text(`エラー: ${(e as Error).message}`), isError: true };
     }
@@ -271,7 +282,7 @@ export function buildMcpServer() {
         project: projectArg,
         kind: z.string().describe("ノードの種類(list_node_kinds の kind。例: text, buttons, carousel, form, tag)"),
         title: z.string().describe("ノード名(構成図に出る管理用の名前)"),
-        body: z.string().optional().describe("本文(テキストならメッセージ文。改行は\\n)"),
+        body: z.string().optional().describe("本文(テキストならメッセージ文)。改行はそのまま改行で入れる"),
         memo: z.string().optional().describe("メモ(お客様にも見える)"),
         buttons: z.array(z.string()).optional().describe("ボタンの文言の一覧(ボタン系の種類のみ)"),
         cards: z
