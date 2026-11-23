@@ -530,6 +530,53 @@ export function buildMcpServer() {
   );
 
   server.registerTool(
+    "set_image",
+    {
+      title: "画像を設定",
+      description:
+        "ノードやカルーセルのカードにイメージ画像を設定する。card を指定するとそのカードの画像に、" +
+        "省略するとノードの画像(ボタン付きメッセージの上部画像・画像メッセージ・リッチメニューの背景など)になる。" +
+        "image_url は https:// で始まる画像のURL、またはアプリに同梱のサンプル画像(/samples/〜)",
+      inputSchema: {
+        project: projectArg,
+        node: nodeArg,
+        image_url: z.string().describe("画像のURL(https://〜 または /samples/〜)"),
+        name: z.string().optional().describe("画像の名前(説明)"),
+        card: z.string().optional().describe("カルーセルのカードのタイトル(カードに設定する場合)"),
+      },
+    },
+    safe(async (a: { project: string; node: string; image_url: string; name?: string; card?: string }) =>
+      edit(a.project, ({ nodes }) => {
+        const url = a.image_url.trim();
+        if (!/^https:\/\/\S+$/.test(url) && !/^\/samples\/[\w.-]+$/.test(url))
+          throw new Error("image_url は https:// で始まるURLか、/samples/〜 の形で指定してください");
+        const n = findNode(nodes, a.node);
+        const image = { id: nanoid(8), url, name: a.name ?? url.split("/").pop() ?? "image" };
+        let updated: FlowNode;
+        if (a.card) {
+          const card = n.cards.find((c) => c.title === a.card) ?? n.cards.find((c) => c.title.includes(a.card!));
+          if (!card) throw new Error(`「${n.title}」にカード「${a.card}」はありません。カード: ${n.cards.map((c) => c.title).join(" / ") || "なし"}`);
+          // 前の画像は、他のカードで使っていなければ外す
+          const old = card.imageId;
+          const stillUsed = old && n.cards.some((c) => c.id !== card.id && c.imageId === old);
+          updated = {
+            ...n,
+            images: [...n.images.filter((i) => i.id !== old || stillUsed), image],
+            cards: n.cards.map((c) => (c.id === card.id ? { ...c, imageId: image.id } : c)),
+          };
+        } else {
+          // ノードの画像は先頭の1枚が使われるので、先頭に入れる
+          updated = { ...n, images: [image, ...n.images] };
+        }
+        return {
+          nodes: nodes.map((x) => (x.id === n.id ? updated : x)),
+          message: `「${n.title}」${a.card ? `のカード「${a.card}」` : ""}に画像を設定しました`,
+        };
+      }),
+    ),
+  );
+
+  server.registerTool(
     "delete_node",
     {
       title: "ノードを削除",
