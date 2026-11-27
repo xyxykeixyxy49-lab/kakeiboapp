@@ -1,0 +1,4 @@
+schema_version: "1.1"
+name: adds-cancel-branch
+expected_outcome: |
+  既存の不動産案件を get_flow で確認したうえで、相談窓口にボタンを1つ追加し、その先にキャンセル受付テキストと担当者通知のアクションが順につながる。既存のボタンやつながりは壊さない。

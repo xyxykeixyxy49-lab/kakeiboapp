@@ -1,0 +1,4 @@
+schema_version: "1.1"
+name: explains-flow-for-client
+expected_outcome: |
+  get_flow で構成を読み、編集はせずに、専門用語を避けた日本語で分岐ごとの流れを説明する文章を返す。

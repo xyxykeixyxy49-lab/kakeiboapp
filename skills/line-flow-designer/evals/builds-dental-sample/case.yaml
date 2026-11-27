@@ -1,0 +1,4 @@
+schema_version: "1.1"
+name: builds-dental-sample
+expected_outcome: |
+  LINE構成デザイナーに歯科医院のLステップ案件が作られ、起点→あいさつ→ヒアリング→予約・メニュー・検診・FAQの流れとリッチメニューがつながった状態で、最後に整列と確認が行われ、日本語で要約が報告される。
